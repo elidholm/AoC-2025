@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+while IFS=, read -r -d, range; do
+  IFS=- read -r start end <<< "$range"
+  echo "Processing range from $start to $end"
+  for ((i=start; i<=end; i++)); do
+    if (( ${#i} % 2 != 0 )); then
+      continue
+    fi
+    half_length=$(( ${#i} / 2 ))
+    first_half=${i:0:half_length}
+    second_half=${i:half_length:half_length}
+    if [[ $first_half == "$second_half" ]]; then
+      echo "    Invalid ID found: $i"
+      accumulated=$((accumulated + i))
+    fi
+
+  done
+done < "$INPUT_FILE"
+
+echo "Total sum of invalid IDs: $accumulated"
