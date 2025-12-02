@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Day 1, Part 2 solution
+
+set -euo pipefail
+
+# TODO: Implement Day 1, Part 2 solution
+# Input file will be passed as first argument: "${1:-input.txt}"
+echo "Day 1, Part 2 - Not yet implemented"
