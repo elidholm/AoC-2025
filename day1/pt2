@@ -1,8 +1,59 @@
 #!/usr/bin/env bash
-# Day 1, Part 2 solution
 
-set -euo pipefail
+INPUT_FILE="${1:-input.txt}"
 
-# TODO: Implement Day 1, Part 2 solution
-# Input file will be passed as first argument: "${1:-input.txt}"
-echo "Day 1, Part 2 - Not yet implemented"
+dial=50
+accumulated=0
+
+echo "- The dial starts by pointing at $dial"
+
+while IFS= read -r line; do
+  direction=${line:0:1}
+  value=${line:1:10} # Assuming no more than 10 digits
+
+  start_at_zero=$((dial == 0 ? 1 : 0))
+  changed=0
+  clicks=0
+
+  case $direction in
+    L)
+      dial=$((dial - value))
+      ;;
+    R)
+      dial=$((dial + value))
+      ;;
+    *)
+      echo "Unknown direction: $direction"
+      ;;
+  esac
+
+  while ((dial < 0)); do
+    if ((start_at_zero)); then
+      start_at_zero=0
+    else
+      clicks=$((clicks + 1));
+    fi
+    dial=$((dial + 100))
+  done
+  while ((dial >= 100)); do
+    clicks=$((clicks + 1))
+    dial=$((dial - 100))
+    changed=1
+  done
+
+  if ((dial == 0)) && ! ((changed)); then
+    clicks=$((clicks + 1))
+  fi
+
+  echo -n "- The dial is rotated $direction$value to point at $dial"
+  if ((clicks > 0)); then
+    echo " (click x $clicks)."
+    accumulated=$((accumulated + clicks))
+  else
+    echo "."
+  fi
+
+done < "$INPUT_FILE"
+
+echo "Total times dial was at 0: $accumulated"
+
