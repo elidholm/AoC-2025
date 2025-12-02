@@ -75,5 +75,5 @@ echo "Running Day $DAY, Part $PART with ${INPUT_FILE##*/}..."
 echo -e '---\n'
 
 pushd "$DAY_DIR" &>/dev/null || fatal "Failed to change directory to $DAY_DIR"
-"$PART_SCRIPT" "$INPUT_FILE"
+time "$PART_SCRIPT" "$INPUT_FILE"
 popd &>/dev/null || fatal 'Failed to return to original directory'
