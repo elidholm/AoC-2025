@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+while IFS=, read -r -d, range; do
+  IFS=- read -r start end <<< "$range"
+  echo "Processing range from $start to $end"
+  for ((i=start; i<=end; i++)); do
+    length=${#i}
+    half_length=$((length / 2))
+    for ((j=1; j<=half_length; j++)); do
+      if (( length % j != 0 )); then
+        continue
+      fi
+      substring=${i:0:j}
+      test=""
+      for ((k=1; k<=length/j; k++)); do
+        test+=$substring
+      done
+      if [[ $i == "$test" ]]; then
+        echo "    Invalid ID found: $i"
+        accumulated=$((accumulated + i))
+        break
+      fi
+    done
+  done
+done < "$INPUT_FILE"
+
+echo "Total sum of invalid IDs: $accumulated"
