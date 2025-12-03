@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+INPUT_FILE=${1:-input.txt}
+
+accumulated=0
+
+find-one-value() {
+  local remaining=$1
+  local line=$2
+  for i in {9..1}; do
+    if [[ $line =~ ^([0-9]*)($i)([0-9]{$remaining,})$ ]]; then
+      echo -n "$i"
+      return
+    fi
+  done
+  echo 'uh, oh' >&2
+  exit 1
+}
+
+find-joltage() {
+  local line=$1
+  local remaining
+  for remaining in {11..0}; do
+    if ((remaining == ${#line} - 1)); then
+      echo -n "$line"
+      return
+    fi
+    value=$(find-one-value "$remaining" "$line")
+    line=${line#*"$value"}
+    echo -n "$value"
+  done
+}
+
+while IFS= read -r line; do
+  echo "Processing line: $line"
+  joltage=$(find-joltage "$line")
+  echo "    Found joltage rating: $joltage"
+  accumulated=$((accumulated + joltage))
+done < "$INPUT_FILE"
+
+echo "Total sum of joltage ratings: $accumulated"
