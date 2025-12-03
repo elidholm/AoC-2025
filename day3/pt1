@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+find-joltage() {
+  local line=$1
+  for i in {9..1}; do
+    for j in {9..1}; do
+      if [[ $line =~ ^[0-9]*($i)[0-9]*($j)[0-9]*$ ]]; then
+        echo "$((i * 10 + j))"
+        return
+      fi
+    done
+  done
+  echo 'uh, oh'
+  exit 1
+}
+
+while IFS= read -r line; do
+  echo "Processing line: $line"
+  joltage=$(find-joltage "$line")
+  echo "  Found joltage rating: $joltage"
+  accumulated=$((accumulated + joltage))
+done < "$INPUT_FILE"
+
+echo "Total sum of joltage ratings: $accumulated"
