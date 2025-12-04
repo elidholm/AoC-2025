@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+declare lines=()
+
+while IFS= read -r line; do
+  lines+=("$line")
+done < "$INPUT_FILE"
+
+rows=${#lines[@]}
+cols=${#lines[0]}
+
+echo "Grid size: ${rows}x${cols}"
+
+echo '======= Searching for rolls ======='
+for ((i=0; i<rows; i++)); do
+  for ((j=0; j<cols; j++)); do
+    current=${lines[i]:j:1}
+    if [[ $current == "." ]]; then
+      echo -n "."
+      continue
+    fi
+
+    if ((i > 0 && j > 0)) && [[ ${lines[i-1]:j-1:1} == "@" ]]; then
+      nw=1
+    else
+      nw=0
+    fi
+
+    if ((i > 0)) && [[ ${lines[i-1]:j:1} == "@" ]]; then
+      n=1
+    else
+      n=0
+    fi
+
+    if ((i > 0 && j < cols - 1)) && [[ ${lines[i-1]:j+1:1} == "@" ]]; then
+      ne=1
+    else
+      ne=0
+    fi
+
+    if ((j > 0)) && [[ ${lines[i]:j-1:1} == "@" ]]; then
+      w=1
+    else
+      w=0
+    fi
+
+    if ((j < cols - 1)) && [[ ${lines[i]:j+1:1} == "@" ]]; then
+      e=1
+    else
+      e=0
+    fi
+
+    if ((i < rows - 1 && j > 0)) && [[ ${lines[i+1]:j-1:1} == "@" ]]; then
+      sw=1
+    else
+      sw=0
+    fi
+
+    if ((i < rows - 1)) && [[ ${lines[i+1]:j:1} == "@" ]]; then
+      s=1
+    else
+      s=0
+    fi
+
+    if ((i < rows - 1 && j < cols - 1)) && [[ ${lines[i+1]:j+1:1} == "@" ]]; then
+      se=1
+    else
+      se=0
+    fi
+
+    total=$((nw + n + ne + w + e + sw + s + se))
+    if ((total < 4)); then
+      echo -n "x"
+      ((accumulated++))
+    else
+      echo -n "@"
+    fi
+  done
+  echo ""
+done
+
+echo "Found $accumulated accessible paper rolls"
