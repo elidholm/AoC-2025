@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+map=()
+
+while IFS= read -r line; do
+  map+=("$line")
+done < "$INPUT_FILE"
+
+rows=${#map[@]}
+cols=${#map[0]}
+
+echo "Grid size: ${rows}x${cols}"
+
+rolls=()
+echo -e "\nParsing map for paper rolls..."
+for ((i=0; i<rows; i++)); do
+  for ((j=0; j<cols; j++)); do
+    if [[ ${map[i]:j:1} == "@" ]]; then
+      rolls+=("($i,$j)")
+    fi
+  done
+done
+
+echo "  Found ${#rolls[@]} paper rolls on the map"
+
+pass=1
+removed_count=-1
+echo -e "\nRemoving accessible rolls..."
+while ((removed_count != 0)); do
+  removed_count=0
+  removed_this_pass=()
+  current=1
+  for roll in "${rolls[@]}"; do
+    echo -ne "  Pass $pass: Processed $current/${#rolls[@]} rolls (removed $removed_count)\r"
+
+    IFS=',' read -r i j <<< "$roll"
+    i=${i//[()]/}
+    j=${j//[()]/}
+
+
+    if [[ ${rolls[*]} =~ "($((i-1)),$((j-1)))" ]]; then
+      nw=1
+    else
+      nw=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($((i-1)),$j)" ]]; then
+      n=1
+    else
+      n=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($((i-1)),$((j+1)))" ]]; then
+      ne=1
+    else
+      ne=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($i,$((j-1)))" ]]; then
+      w=1
+    else
+      w=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($i,$((j+1)))" ]]; then
+      e=1
+    else
+      e=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($((i+1)),$((j-1)))" ]]; then
+      sw=1
+    else
+      sw=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($((i+1)),$j)" ]]; then
+      s=1
+    else
+      s=0
+    fi
+
+    if [[ ${rolls[*]} =~ "($((i+1)),$((j+1)))" ]]; then
+      se=1
+    else
+      se=0
+    fi
+
+    total=$((nw + n + ne + w + e + sw + s + se))
+    if ((total < 4)); then
+      removed_this_pass+=("$i,$j")
+      ((removed_count++))
+    fi
+
+    ((current++))
+  done
+
+  echo "  Pass $pass: Removed $removed_count rolls                                               "
+  for pos in "${removed_this_pass[@]}"; do
+    rolls=($(for item in "${rolls[@]}"; do echo "$item"; done | grep -v "($pos)"))
+  done
+  accumulated=$((accumulated + removed_count))
+  ((pass++))
+done
+
+
+echo -e "\nFound a total of $accumulated accessible paper rolls"
