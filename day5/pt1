@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+ranges=()
+echo "Reading ranges from ${INPUT_FILE##*/}..."
+while read -r line; do
+  if [[ -z "$line" ]]; then
+    break
+  fi
+  ranges+=("$line")
+done < "$INPUT_FILE"
+echo "  Found ${#ranges[@]} ranges."
+
+ids=()
+done_with_ranges=false
+echo "Reading ingredient IDs from ${INPUT_FILE##*/}..."
+while read -r line; do
+  if [[ -z "$line" ]]; then
+    done_with_ranges=true
+    continue
+  fi
+  if ! $done_with_ranges; then
+    continue
+  fi
+  ids+=("$line")
+done < "$INPUT_FILE"
+echo "  Found ${#ids[@]} ingredient IDs."
+
+for id in "${ids[@]}"; do
+  for range in "${ranges[@]}"; do
+    IFS=- read -r start end <<< "$range"
+    if (( id >= start && id <= end )); then
+      echo "    Ingredient ID $id is fresh (in range $start-$end)."
+      accumulated=$((accumulated + 1))
+      continue 2
+    fi
+  done
+done
+
+echo -e "\nFound $accumulated fresh ingredients."
