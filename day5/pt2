@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+merge_ranges() {
+  local ranges=("$@")
+  local merged=()
+
+  for ((i=0; i<${#ranges[@]}; i++)); do
+    merged_flag=false
+    if [[ -z "${ranges[i]}" ]]; then
+      continue
+    fi
+    IFS=- read -r start_1 end_1 <<< "${ranges[i]}"
+    for ((j=i+1; j<${#ranges[@]}; j++)); do
+      if [[ -z "${ranges[j]}" ]]; then
+        continue
+      fi
+      IFS=- read -r start_2 end_2 <<< "${ranges[j]}"
+      if ((start_1 <= end_2 && end_1 >= start_2)) || ((start_2 <= end_1 && end_2 >= start_1)); then
+        merged_flag=true
+        start=$((start_1 < start_2 ? start_1 : start_2))
+        end=$((end_1 > end_2 ? end_1 : end_2))
+        merged+=("$start-$end")
+        ranges=( "${ranges[@]:0:j}" "${ranges[@]:j+1}" )
+        break
+      fi
+    done
+    if [[ $merged_flag == false ]]; then
+      merged+=("${ranges[i]}")
+    fi
+  done
+
+  echo "${merged[@]}"
+}
+
+ranges=()
+echo "Reading ranges from ${INPUT_FILE##*/}..."
+while read -r line; do
+  if [[ -z "$line" ]]; then
+    break
+  fi
+  ranges+=("$line")
+done < "$INPUT_FILE"
+echo "  Found ${#ranges[@]} ranges"
+
+echo -e "\nMerging overlapping ranges..."
+diff=1
+i=1
+while (( diff > 0 )); do
+  previous_count=${#ranges[@]}
+  read -ra ranges <<< "$(merge_ranges "${ranges[@]}")"
+  echo "  ${#ranges[@]} ranges after merge $i"
+  ((i++))
+  diff=$((previous_count - ${#ranges[@]}))
+done
+
+echo "    Merged into ${#ranges[@]} distinct ranges."
+
+echo -e "\nProcessing ingredient ID ranges..."
+for range in "${ranges[@]}"; do
+  IFS=- read -r start end <<< "$range"
+  range_size=$((end - start + 1))
+  accumulated=$((accumulated + range_size))
+done
+
+echo "  A total of $accumulated ingredient IDs are considered fresh."
