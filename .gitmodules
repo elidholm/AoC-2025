@@ -1,0 +1,3 @@
+[submodule "libs/vardump"]
+	path = libs/vardump
+	url = git@github.com:elidholm/vardump.git

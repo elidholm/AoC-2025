@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+INPUT_FILE=${1:-input.txt}
+
+accumulated=0
+
+operations_string=$(tail -1 "$INPUT_FILE")
+IFS=' ' read -r -a opps_array <<< "$operations_string"
+
+IFS=$'\n' read -d '\n' -r -a lines < "$INPUT_FILE"
+
+num_lines=$((${#lines[@]}-1))
+
+longest=0
+for line in "${lines[@]}"; do
+  if (( ${#line} > longest )); then
+    longest=${#line}
+  fi
+done < "$INPUT_FILE"
+
+numbers=('')
+for ((j=longest-1; j>=0; j--)); do
+  col=''
+  for ((i=0; i<num_lines; i++)); do
+    char=${lines[i]:j:1}
+    if [[ $char == ' ' ]]; then
+      continue
+    fi
+    col+=$char
+  done
+  numbers+=("$col")
+done
+
+problem_number=0
+tally=
+echo 'Processing cephalopod math problems...'
+for ((i=${#numbers[@]}-1; i>=0; i--)); do
+  number=${numbers[i]}
+  if [[ -z $number ]]; then
+    problem_number=$((problem_number + 1))
+    accumulated=$((accumulated + tally))
+    echo "  Tally for problem $problem_number: $tally"
+    tally=
+    continue
+  fi
+  if [[ ${opps_array[problem_number]} == '+' ]]; then
+    if [[ -z $tally ]]; then
+      tally=$number
+    else
+      tally=$((tally + number))
+    fi
+  elif [[ ${opps_array[problem_number]} == '*' ]]; then
+    if [[ -z $tally ]]; then
+      tally=$number
+    else
+      tally=$((tally * number))
+    fi
+  fi
+done
+
+echo -e "\nSum of solutions: $accumulated"
