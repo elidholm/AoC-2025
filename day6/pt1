@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+operations_string=$(tail -1 "$INPUT_FILE")
+IFS=' ' read -r -a opps_array <<< "$operations_string"
+
+num_problems=${#opps_array[@]}
+problems=()
+start_line=$(head -1 "$INPUT_FILE")
+IFS=' ' read -r -a problems <<< "$start_line"
+
+first_line=true
+while IFS=' ' read -r -a numbers; do
+  if [[ ${numbers[*]} == "${opps_array[*]}" ]]; then
+    break
+  fi
+  if $first_line; then
+    first_line=false
+    continue
+  fi
+
+  for ((i=0; i<num_problems; i++)); do
+    operation=${opps_array[i]}
+    case $operation in
+      '+')
+        problems[i]=$((problems[i] + numbers[i]))
+        ;;
+      '*')
+        problems[i]=$((problems[i] * numbers[i]))
+        ;;
+      *)
+        echo "Unknown operation: $operation"
+        ;;
+    esac
+  done
+
+done < "$INPUT_FILE"
+
+for value in "${problems[@]}"; do
+  accumulated=$((accumulated + value))
+done
+
+echo "Sum of solutions: $accumulated"
