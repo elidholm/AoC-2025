@@ -13,6 +13,8 @@ if ! [[ $DAY =~ ^[0-9]+$ ]] || ((DAY < 1)) || ((DAY > 25)); then
   exit 1
 fi
 
+printf -v DAY '%02d' "$DAY"
+
 mkdir -p "day$DAY"
 
 touch "day$DAY"/{pt1,pt2,input.txt,example.txt}

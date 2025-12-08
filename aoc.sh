@@ -45,6 +45,8 @@ if ! [[ $PART =~ ^[12]$ ]]; then
   fatal 'Part must be 1 or 2'
 fi
 
+printf -v DAY '%02d' "$DAY"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DAY_DIR="$SCRIPT_DIR/day$DAY"
 PART_SCRIPT="$DAY_DIR/pt$PART"
