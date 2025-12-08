@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+beams=()
+
+n_lines=$(wc -l < "$INPUT_FILE")
+j=0
+while IFS= read -r line; do
+  if ((j == 0)); then
+    echo "searching for initial beam position..."
+  else
+    echo "processing line $((j+1))/$n_lines"
+  fi
+  new_beams=()
+  for ((i=0; i<${#line}; i++)); do
+
+    if ((j == 0)); then
+      if [[ "${line:i:1}" == "S" ]]; then
+        new_beams[i]=1
+        echo -e "  initial beam found at position ${i@Q}\n"
+      else
+        new_beams[i]=0
+      fi
+    else
+      if ((beams[i] == 1)); then
+        if [[ ${line:i:1} == "^" ]]; then
+          new_beams[i]=0
+          ((i>0)) && new_beams[i-1]=1
+          ((i<${#line})) && new_beams[i+1]=1
+          ((accumulated++))
+        else
+          new_beams[i]=1
+        fi
+      else
+        if ((new_beams[i]==1)); then
+          # already set by a split from the left
+          continue
+        fi
+        new_beams[i]=0
+      fi
+    fi
+
+  done
+  beams=("${new_beams[@]}")
+  ((j++))
+done < "$INPUT_FILE"
+
+echo -e "\nDetected $accumulated beam splittings"
