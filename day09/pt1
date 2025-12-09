@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+echo 'loading tiles from input file...'
+read -d '\n'  -r -a tiles < "$INPUT_FILE"
+echo "  loaded ${#tiles[@]} tiles"
+
+biggest=0
+echo -e '\ncomputing rectangle sizes...'
+for ((i=0; i<${#tiles[@]}; i++)); do
+  IFS=',' read -r x1 y1 <<< "${tiles[i]}"
+  for ((j=i+1; j<${#tiles[@]}; j++)); do
+    IFS=',' read -r x2 y2 <<< "${tiles[j]}"
+    width=$((x2 - x1))
+    height=$((y2 - y1))
+    width=$((${width#-} + 1))
+    height=$((${height#-} + 1))
+    area=$((width * height))
+    areas+=("$area")
+    if ((area > biggest)); then
+      echo "  new biggest rectangle found: area $area (tiles ${tiles[i]} to ${tiles[j]})"
+      biggest=$area
+    fi
+  done
+done
+
+echo -e "\nThe biggest rectangle has an area of $biggest"
