@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+distance() {
+  local x1=$1
+  local y1=$2
+  local z1=$3
+  local x2=$4
+  local y2=$5
+  local z2=$6
+
+  echo $(( (x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2 ))
+}
+
+read -d '\n' -r -a boxes < "$INPUT_FILE"
+
+declare connections=()
+if [[ $INPUT_FILE =~ input.txt$ && -f '__cache__/distances.txt' ]]; then
+  echo 'loading connections from cache...'
+  mapfile -t connections < '__cache__/distances.txt'
+  echo "  loaded ${#connections[@]} connections from cache"
+else
+  echo 'no connections cache found, computing distances...'
+  for ((i=0; i<${#boxes[@]}; i++)); do
+    for ((j=i+1; j<${#boxes[@]}; j++)); do
+      IFS=',' read -r -a box1 <<< "${boxes[i]}"
+      IFS=',' read -r -a box2 <<< "${boxes[j]}"
+      key="${i},${j}"
+      d=$(distance "${box1[@]}" "${box2[@]}")
+      connections+=("$d $key")
+      [[ $INPUT_FILE =~ input.txt$ ]] && echo "$d $key" >> '__cache__/distances.txt'
+    done
+    if (((i+1) % 10 == 0)); then
+      echo "  processed $((i+1))/${#boxes[@]} boxes"
+    fi
+  done
+fi
+
+mapfile -t connections < <(printf '%s\n' "${connections[@]}" | sort -n)
+
+length() {
+  local circuit=$1
+  IFS=',' read -r -a box_indices <<< "$circuit"
+  echo "${#box_indices[@]}"
+}
+
+longest() {
+  local circuits=("$@")
+  local circuit_lengths=()
+  for circuit in "${circuits[@]}"; do
+    circuit_lengths+=("$(length "$circuit")")
+  done
+  for length in "${circuit_lengths[@]}"; do
+    if ((length > max)); then
+      max=$length
+    fi
+  done
+  echo "$max"
+}
+
+echo -e '\nconnecting boxes until the network is fully connected...'
+circuits=()
+iter=1
+for conn in "${connections[@]}"; do
+  read -r _ key <<< "$conn"
+  IFS=',' read -r box1 box2 <<< "$key"
+  added=false
+  for ((i=0; i<${#circuits[@]}; i++)); do
+    if [[ ${circuits[i]} =~ (^|,)$box1(,|$) ]]; then
+      if [[ ${circuits[i]} =~ (^|,)$box2(,|$) ]]; then
+        added=true
+        break
+      else
+        for ((j=0; j<${#circuits[@]}; j++)); do
+          if ((i == j)); then
+            continue
+          fi
+          if [[ ${circuits[j]} =~ (^|,)$box2(,|$) ]]; then
+            circuits[i]="${circuits[i]},${circuits[j]}"
+            if (($(length "${circuits[i]}") == ${#boxes[@]})); then
+              echo '  all boxes connected into a single circuit!'
+              break 3
+            fi
+            unset 'circuits[j]'
+            circuits=("${circuits[@]}")  # reindex array
+            added=true
+            break 2
+          fi
+        done
+      fi
+      circuits[i]="${circuits[i]},${box2}"
+      if (($(length "${circuits[i]}") == ${#boxes[@]})); then
+        echo '  all boxes connected into a single circuit!'
+        break 2
+      fi
+      added=true
+      break
+    elif [[ ${circuits[i]} =~ (^|,)$box2(,|$) ]]; then
+      for ((j=0; j<${#circuits[@]}; j++)); do
+        if ((i == j)); then
+          continue
+        fi
+        if [[ ${circuits[j]} =~ (^|,)$box1(,|$) ]]; then
+          circuits[i]="${circuits[i]},${circuits[j]}"
+          if (($(length "${circuits[i]}") == ${#boxes[@]})); then
+            echo '  all boxes connected into a single circuit!'
+            break 3
+          fi
+          unset 'circuits[j]'
+          circuits=("${circuits[@]}")  # reindex array
+          added=true
+          break 2
+        fi
+      done
+      circuits[i]="${circuits[i]},${box1}"
+      if (($(length "${circuits[i]}") == ${#boxes[@]})); then
+        echo '  all boxes connected into a single circuit!'
+        break 2
+      fi
+      added=true
+      break
+    fi
+  done
+  if ! $added; then
+    circuits+=("${box1},${box2}")
+  fi
+
+  if ((iter % 100 == 0));then
+    echo "  processed $iter connections, longest circuit length is $(longest "${circuits[@]}")"
+  fi
+  ((iter++))
+done
+
+IFS=',' read -r x1 y1 z1 x2 _  <<< "${boxes[$box1]},${boxes[$box2]}"
+echo -e "\nResult: $((x1*x2))"
