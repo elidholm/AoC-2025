@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+start_machine() {
+  local target=$1
+  shift
+  local button_wirings=("$@")
+
+  declare -A states_seen[0]=0
+
+  presses=1
+  while true; do
+    for state in "${!states_seen[@]}"; do
+      for button in "${button_wirings[@]}"; do
+        new_state=$((state ^ button))
+        if [[ -n "${states_seen["$new_state"]}" ]]; then
+          continue
+        fi
+        states_seen["$new_state"]=$presses
+        if [[ "$new_state" == "$target" ]]; then
+          echo "$presses"
+          return 0
+        fi
+      done
+    done
+    ((presses++))
+  done
+
+  return 1
+}
+
+wiring_to_binary() {
+  local wiring_str=$1
+  local binary=0
+  IFS=',' read -r -a indices <<< "$wiring_str"
+  for idx in "${indices[@]}"; do
+    binary=$((binary | (1 << idx)))
+  done
+  echo "$binary"
+}
+
+accumulated=0
+machine=1
+echo 'starting up machines...'
+while IFS= read -r line; do
+  read -r -a schematic <<< "$line"
+  light_diagram="${schematic[0]}"
+  unset 'schematic[0]' # remove the light diagram at the start
+  schematic=("${schematic[@]}") # re-index array
+  target=0
+  for ((i=${#light_diagram}-1; i>=0; i--)); do
+    if [[ ${light_diagram:i:1} == '#' ]]; then
+      target=$((target << 1 | 1))
+    elif [[ ${light_diagram:i:1} == '.' ]]; then
+      target=$((target << 1 | 0))
+    fi
+  done
+
+  unset 'schematic[-1]' # remove the joltage requirements at the end
+  button_wirings=("${schematic[@]}") # re-index array
+  for ((i=0; i<${#button_wirings[@]}; i++)); do
+    button_wirings[i]="${button_wirings[i]##(}"
+    button_wirings[i]="${button_wirings[i]%%)}"
+  done
+  for ((i=0; i<${#button_wirings[@]}; i++)); do
+    button_wirings[i]=$(wiring_to_binary "${button_wirings[i]}")
+  done
+
+  presses_needed=$(start_machine "$target" "${button_wirings[@]}")
+  echo "  machine $machine started after $presses_needed button presses"
+  accumulated=$((accumulated + presses_needed))
+  ((machine++))
+done < "$INPUT_FILE"
+
+echo -e "\nfewest button presses required is $accumulated"
