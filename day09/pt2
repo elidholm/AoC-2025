@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+COLOR_RED=$'\e[31m'
+COLOR_GREEN=$'\e[32m'
+COLOR_BLUE=$'\e[34m'
+COLOR_DIM=$'\e[2m'
+COLOR_RST=$'\e[0m'
+
+echo 'loading tiles from input file...'
+read -d '\n'  -r -a tiles < "$INPUT_FILE"
+echo "  loaded ${#tiles[@]} tiles"
+original_tiles=("${tiles[@]}")
+
+echo -e '\nfinding rows and columns with tiles...'
+cols_with_tiles=()
+rows_with_tiles=()
+for tile in "${tiles[@]}"; do
+  IFS=',' read -r x y <<< "$tile"
+  cols_with_tiles["$x"]=1
+  rows_with_tiles["$y"]=1
+done
+echo "  found ${#cols_with_tiles[@]} columns with tiles"
+echo "  found ${#rows_with_tiles[@]} rows with tiles"
+
+echo -e '\nremoving rows without tiles...'
+ind=1
+for tile in "${tiles[@]}"; do
+  IFS=',' read -r x y <<< "$tile"
+  removed=0
+  for ((i=0; i<y; i++)); do
+    if [[ -z ${rows_with_tiles["$i"]} ]]; then
+      ((removed++))
+    fi
+  done
+  y=$((y - removed))
+  tiles_modified+=("$x,$y")
+  echo -en "  processed $ind/${#tiles[@]} tiles\r"
+  ((ind++))
+done
+tiles=("${tiles_modified[@]}")
+
+echo -e '\n\nremoving columns without tiles...'
+ind=1
+for tile in "${tiles[@]}"; do
+  IFS=',' read -r x y <<< "$tile"
+  removed=0
+  for ((i=0; i<x; i++)); do
+    if [[ -z ${cols_with_tiles["$i"]} ]]; then
+      ((removed++))
+    fi
+  done
+  x=$((x - removed))
+  tiles_modified2+=("$x,$y")
+  echo -en "  processed $ind/${#tiles[@]} tiles\r"
+  ((ind++))
+done
+tiles=("${tiles_modified2[@]}")
+
+echo -e '\n\npadding top and left with empty rows/columns...'
+for tile in "${tiles[@]}"; do
+  IFS=',' read -r x y <<< "$tile"
+  x=$((x + 1))
+  y=$((y + 1))
+  tiles_padded+=("$x,$y")
+done
+tiles=("${tiles_padded[@]}")
+
+min_x=-1
+max_x=0
+min_y=-1
+max_y=0
+echo -e '\ncomputing grid size...'
+for tile in "${tiles[@]}"; do
+  IFS=',' read -r x y <<< "$tile"
+  if ((min_x < 0 || x < min_x)); then
+    min_x=$x
+  fi
+  if ((min_y < 0 || y < min_y)); then
+    min_y=$y
+  fi
+  if ((x > max_x)); then
+    max_x=$x
+  fi
+  if ((y > max_y)); then
+    max_y=$y
+  fi
+done
+width=$((max_x - min_x + 2)) # pad right
+height=$((max_y - min_y + 2))  # pad bottom
+echo "  found grid of size ${width}x${height} (from ${min_x},${min_y} to ${max_x},${max_y})"
+
+declare -A map
+echo -e '\nplacing tiles on the map...'
+for tile in "${tiles[@]}"; do
+  IFS=',' read -r x y <<< "$tile"
+  map["$((x)),$((y))"]="${COLOR_RED}#${COLOR_RST}"
+done
+
+echo -e '\ndrawing lines between tiles...'
+for ((i=0; i<${#tiles[@]}; i++)); do
+  IFS=',' read -r x1 y1 <<< "${tiles[i]}"
+  if ((i + 1 == ${#tiles[@]})); then
+    IFS=',' read -r x2 y2 <<< "${tiles[0]}"
+  else
+    IFS=',' read -r x2 y2 <<< "${tiles[i+1]}"
+  fi
+
+  if ((x1 == x2)); then
+    # vertical line
+    if ((y1 > y2)); then
+      temp=$y1
+      y1=$y2
+      y2=$temp
+    fi
+    for ((y=y1+1; y<y2; y++)); do
+      map["$x1,$y"]="${COLOR_GREEN}X${COLOR_RST}"
+    done
+  elif ((y1 == y2)); then
+    # horizontal line
+    if ((x1 > x2)); then
+      temp=$x1
+      x1=$x2
+      x2=$temp
+    fi
+    for ((x=x1+1; x<x2; x++)); do
+      map["$x,$y1"]="${COLOR_GREEN}X${COLOR_RST}"
+    done
+  else
+    echo 'ERROR: only horizontal and vertical lines are supported' >&2
+    exit 1
+  fi
+done
+
+echo -e '\nflood-filling outside of map:'
+queue+=("0,0")
+while (( ${#queue[@]} )); do
+  IFS=',' read -r x y <<< "${queue[0]}"
+  queue=("${queue[@]:1}")
+  echo -en "  queue size: ${#queue[@]}             \r"
+
+  if [[ -n ${map["$x,$y"]} ]]; then
+    continue
+  fi
+
+  map["$x,$y"]="${COLOR_DIM}.${COLOR_RST}"
+
+  for dx in -1 0 1; do
+    for dy in -1 0 1; do
+      if (( (dx == 0 || dy == 0) && !(dx == 0 && dy == 0) )); then
+        nx=$((x + dx))
+        ny=$((y + dy))
+        if ((nx >= 0 && nx <= width && ny >= 0 && ny <= height)); then
+          queue+=("$nx,$ny")
+        fi
+      fi
+    done
+  done
+done
+
+echo -e '\ncomputing rectangle sizes...'
+rectangles=()
+for ((i=0; i<${#tiles[@]}; i++)); do
+  IFS=',' read -r x1 y1 <<< "${original_tiles[i]}"
+  for ((j=i+1; j<${#tiles[@]}; j++)); do
+    IFS=',' read -r x2 y2 <<< "${original_tiles[j]}"
+    rwidth=$((x2 - x1))
+    rheight=$((y2 - y1))
+    rwidth=$((${rwidth#-} + 1))
+    rheight=$((${rheight#-} + 1))
+    area=$((rwidth * rheight))
+    rectangles+=("$area $i $j")
+  done
+done
+
+mapfile -t rectangles < <(for k in "${!rectangles[@]}"; do
+  echo "${rectangles[$k]}"
+done | sort -k1,2nr)
+
+valid_rectangle() {
+  local i=$1
+  local j=$2
+  local x1 y1 x2 y2
+  IFS=',' read -r x1 y1 <<< "${tiles[i]}"
+  IFS=',' read -r x2 y2 <<< "${tiles[j]}"
+  if ((x1 > x2)); then
+    temp=$x1
+    x1=$x2
+    x2=$temp
+  fi
+  if ((y1 > y2)); then
+    temp=$y1
+    y1=$y2
+    y2=$temp
+  fi
+  for ((x=x1; x<=x2; x++)); do
+    if [[ ${map["$x,$y1"]} == "${COLOR_DIM}.${COLOR_RST}" || ${map["$x,$y2"]} == "${COLOR_DIM}.${COLOR_RST}" ]]; then
+      return 1
+    fi
+  done
+  for ((y=y1; y<=y2; y++)); do
+    if [[ ${map["$x1,$y"]} == "${COLOR_DIM}.${COLOR_RST}" || ${map["$x2,$y"]} == "${COLOR_DIM}.${COLOR_RST}" ]]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+echo -e '\nvalidating rectangles:'
+for rect in "${rectangles[@]}"; do
+  read -r area i j <<< "$rect"
+  echo "  validating ${original_tiles[i]} <-> ${original_tiles[j]} ($area)..."
+  if valid_rectangle "$i" "$j"; then
+    echo "    ${COLOR_GREEN}valid rectangle found!${COLOR_RST}"
+    break
+  else
+    echo "    ${COLOR_RED}invalid!${COLOR_RST}"
+  fi
+done
+
+echo -e '\nfilling in rectangle...'
+IFS=',' read -r x1 y1 <<< "${tiles[i]}"
+IFS=',' read -r x2 y2 <<< "${tiles[j]}"
+if ((x1 > x2)); then
+  temp=$x1
+  x1=$x2
+  x2=$temp
+fi
+if ((y1 > y2)); then
+  temp=$y1
+  y1=$y2
+  y2=$temp
+fi
+for ((x=x1; x<=x2; x++)); do
+  for ((y=y1; y<=y2; y++)); do
+    map["$x,$y"]="${COLOR_BLUE}O${COLOR_RST}"
+  done
+done
+
+echo
+for ((y=0; y<=height; y++)); do
+  line=''
+  for ((x=0; x<=width; x++)); do
+    cell=${map["$x,$y"]}
+    if [[ -z $cell ]]; then
+      cell="${COLOR_GREEN}X${COLOR_RST}"
+    fi
+    line+="$cell"
+  done
+  echo "$line"
+done
+
+echo -e "\nValid rectangle with area $area found between tiles ${original_tiles[i]} and ${original_tiles[j]}"
