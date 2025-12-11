@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+accumulated=0
+
+declare -A connections
+echo "loading connections from input file..."
+while IFS= read -r line; do
+  if [[ $line == "" ]]; then
+    break
+  fi
+  IFS=': ' read -r node outputs <<< "$line"
+  connections["$node"]="$outputs"
+done < "$INPUT_FILE"
+echo "  loaded ${#connections[@]} connections"
+
+explore_path() {
+  local node=$1
+
+  if [[ "$node" == "out" ]]; then
+    ((accumulated++))
+    return
+  fi
+
+  IFS=' ' read -r -a outputs <<< "${connections["$node"]}"
+  for output in "${outputs[@]}"; do
+    explore_path "$output"
+  done
+}
+
+echo -e "\nexploring paths from 'you' to 'out'..."
+explore_path "you"
+echo "  found a total of $accumulated paths"
