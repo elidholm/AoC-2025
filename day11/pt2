@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+INPUT_FILE="${1:-input.txt}"
+
+. ../libs/vardump/src/vardump.sh || exit 1
+
+declare -A connections=()
+start_reading=false
+echo "loading connections from input file..."
+while IFS= read -r line; do
+  if [[ $INPUT_FILE =~ example.txt$ ]]; then
+    if [[ $line == "" ]]; then
+      start_reading=true
+      continue
+    fi
+    if ! $start_reading; then
+      continue
+    fi
+  fi
+  IFS=: read -r node outputs <<< "$line"
+  connections["$node"]="$outputs"
+done < "$INPUT_FILE"
+echo "  loaded ${#connections[@]} connections"
+
+total=0
+explore_path() {
+  local node=$1
+  local visited=$2
+
+  visited+="$node,"
+
+  if [[ $node == "$END" ]]; then
+    REPLY=1
+    return
+  fi
+
+  if [[ $node == 'out' ]]; then
+    REPLY=0
+    return
+  fi
+
+  local cached=${cache[$node]}
+  if [[ -n $cached ]]; then
+    REPLY=$cached
+    return
+  fi
+
+  local -a outputs=()
+  read -ra outputs <<< "${connections["$node"]}"
+
+  local total=0
+  local output num
+  for output in "${outputs[@]}"; do
+    num=${| explore_path "$output" "$visited"; }
+    cache["$output"]=$num
+    ((total += num))
+  done
+
+  cache["$node"]=$total
+  REPLY=$total
+}
+
+
+START='svr'
+END='fft'
+echo -e "\nexploring paths from ${START@Q} to ${END@Q}..."
+declare -A cache=()
+svr_fft=${| explore_path "$START" ""; }
+echo "  found a total of $svr_fft paths passing from ${START@Q} to ${END@Q}"
+
+START='fft'
+END='dac'
+declare -A cache=()
+echo -e "\nexploring paths from ${START@Q} to ${END@Q}..."
+fft_dac=${| explore_path "$START" ""; }
+echo "  found a total of $fft_dac paths passing from ${START@Q} to ${END@Q}"
+
+START='dac'
+END='out'
+declare -A cache=()
+echo -e "\nexploring paths from ${START@Q} to ${END@Q}..."
+dac_out=${| explore_path "$START" ""; }
+echo "  found a total of $dac_out paths passing from ${START@Q} to ${END@Q}"
+
+
+echo -e "\nfinal result: "
+echo "  paths ('svr' -> 'fft')                           : $svr_fft"
+echo "  paths ('fft' -> 'dac')                           : $fft_dac"
+echo "  paths ('dac' -> 'out')                           : $dac_out"
+total_paths=$((svr_fft * fft_dac * dac_out))
+echo "  total paths ('svr' -> 'out') via 'fft' and 'dac' : $total_paths"
